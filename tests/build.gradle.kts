@@ -51,6 +51,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.testng)
     testImplementation(libs.kotlin.serialization.json)
+    testImplementation(libs.testcontainers)
 }
 
 tasks.test {
@@ -79,6 +80,11 @@ tasks.test {
             .orElse("./run-wasi.sh").get())
 
     systemProperty("teavm.junit.c", providers.gradleProperty("teavm.tests.c").orElse("true").get())
+    providers.gradleProperty("teavm.tests.c.testContainer")
+            .map { systemProperty("teavm.junit.c.testContainer", it) }.orNull
+    providers.gradleProperty("teavm.tests.c.testContainer.image")
+        .orElse(libs.versions.testcontainers.c.image.get())
+            .map { systemProperty("teavm.junit.c.testContainer.image", it) }.orNull
     systemProperty("teavm.junit.c.compiler", providers.gradleProperty("teavm.tests.c.compiler")
             .orElse("compile-c-unix-fast.sh").get())
 

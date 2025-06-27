@@ -15,21 +15,37 @@
  */
 package org.teavm.junit;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import org.testcontainers.utility.DockerImageName;
 
-class CRunStrategy implements TestRunStrategy {
+class CRunStrategy extends TestRunExecutorStrategy {
+    protected static final File TEST_PWD = Paths.get("").toAbsolutePath().toFile();
+
     private String compilerCommand;
     private ConcurrentMap<String, Compilation> compilationMap = new ConcurrentHashMap<>();
 
+    public static boolean isExecutedInTestContainer() {
+        return Optional.ofNullable(System.getProperty(PropertyNames.C_TESTCONTAINER))
+                .map("true"::equals)
+                .orElse(IS_MAC_OS);
+    }
+
+    public static DockerImageName getTestContainerImage() {
+        if (!isExecutedInTestContainer()) {
+            throw new RuntimeException("Test container image is not defined for this run strategy");
+        }
+        return DockerImageName.parse(System.getProperty(PropertyNames.C_TESTCONTAINER_IMAGE));
+    }
+
     CRunStrategy(String compilerCommand) {
+        super(isExecutedInTestContainer(), getTestContainerImage());
         this.compilerCommand = compilerCommand;
     }
 
@@ -41,28 +57,40 @@ class CRunStrategy implements TestRunStrategy {
                 exeName += ".exe";
             }
 
-            var sourcesDir = new File(run.getGroup().getBaseDirectory(), run.getGroup().getFileName());
-            var outputFile = new File(sourcesDir, exeName);
-            var compilerSuccess = compile(sourcesDir);
+            var absoluteSourcesDir = new File(run.getGroup().getBaseDirectory(), run.getGroup().getFileName());
+            var sourcesDirRelativeToTestPwd = TEST_PWD.toPath().relativize(absoluteSourcesDir.toPath()).toFile();
+            var outputFile = new File(sourcesDirRelativeToTestPwd, exeName);
+
+            List<String> compilerOutput = new ArrayList<>();
+            var compilerSuccess = compile(sourcesDirRelativeToTestPwd, compilerOutput, executionContext);
             if (!compilerSuccess) {
-                throw new RuntimeException("C compiler error");
+                throw new RuntimeException("C compiler error:\n" + mergeLines(compilerOutput));
+            }
+
+            try {
+                executionContext.makeExecutable(outputFile);
+            } catch (IOException ex) {
+                throw new RuntimeException("Failed to make output file executable: " + outputFile.getPath(), ex);
             }
 
             List<String> runtimeOutput = new ArrayList<>();
             List<String> stdout = new ArrayList<>();
-            outputFile.setExecutable(true);
+
             synchronized (this) {
                 List<String> runCommand = new ArrayList<>();
-                runCommand.add(outputFile.getPath());
+                runCommand.add("./" + outputFile.getPath());
                 if (run.getArgument() != null) {
                     runCommand.add(run.getArgument());
                 }
-                runProcess(new ProcessBuilder(runCommand.toArray(new String[0])).start(), runtimeOutput, stdout);
-            }
-            if (!stdout.isEmpty() && stdout.get(stdout.size() - 1).equals("SUCCESS")) {
-                writeLines(runtimeOutput);
-            } else {
-                throw new RuntimeException("Test failed:\n" + mergeLines(runtimeOutput));
+
+                var testOk =
+                        executionContext.runProcess(runCommand, sourcesDirRelativeToTestPwd, runtimeOutput, stdout);
+                var testSuccess = !stdout.isEmpty() && stdout.get(stdout.size() - 1).equals("SUCCESS");
+                if (!testOk || !testSuccess) {
+                    throw new RuntimeException("Test failed:\n" + mergeLines(runtimeOutput));
+                } else {
+                    writeLines(runtimeOutput);
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -83,72 +111,22 @@ class CRunStrategy implements TestRunStrategy {
         }
     }
 
-    private boolean compile(File inputDir) throws IOException, InterruptedException {
+    private boolean compile(File inputDir, List<String> compilerOutput, ExecutionContext executionContext) throws
+            IOException, InterruptedException {
         Compilation compilation = compilationMap.computeIfAbsent(inputDir.getPath(), k -> new Compilation());
         synchronized (compilation) {
             if (!compilation.started) {
                 compilation.started = true;
-                compilation.success = doCompile(inputDir);
+                compilation.success = runCompiler(inputDir, compilerOutput, executionContext);
             }
         }
         return compilation.success;
     }
 
-    private boolean doCompile(File inputDir) throws IOException, InterruptedException {
-        List<String> compilerOutput = new ArrayList<>();
-        boolean compilerSuccess = runCompiler(inputDir, compilerOutput);
-        writeLines(compilerOutput);
-        return compilerSuccess;
-    }
-
-    private boolean runCompiler(File inputDir, List<String> output)
+    private boolean runCompiler(File inputDir, List<String> output, ExecutionContext executionContext)
             throws IOException, InterruptedException {
-        String command = new File(compilerCommand).getAbsolutePath();
-        return runProcess(new ProcessBuilder(command).directory(inputDir).start(), output, new ArrayList<>());
-    }
-
-    private boolean runProcess(Process process, List<String> output, List<String> stdout) throws InterruptedException {
-        BufferedReader stdin = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        BufferedReader stderr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        ConcurrentLinkedQueue<String> lines = new ConcurrentLinkedQueue<>();
-
-        Thread thread = new Thread(() -> {
-            try {
-                while (true) {
-                    String line = stderr.readLine();
-                    if (line == null) {
-                        break;
-                    }
-                    lines.add(line);
-                }
-            } catch (IOException e) {
-                // do nothing
-            }
-        });
-        thread.setDaemon(true);
-        thread.start();
-
-        try {
-            while (true) {
-                String line = stdin.readLine();
-                if (line == null) {
-                    break;
-                }
-                lines.add(line);
-                stdout.add(line);
-                if (lines.size() > 10000) {
-                    output.addAll(lines);
-                    process.destroy();
-                    return false;
-                }
-            }
-        } catch (IOException e) {
-            // do nothing
-        }
-
-        boolean result = process.waitFor() == 0;
-        output.addAll(lines);
-        return result;
+        compilerCommand = Paths.get(".", compilerCommand).toString();
+        return executionContext.runProcess(List.of(compilerCommand), inputDir, output, new ArrayList<>());
     }
 
     @Override
