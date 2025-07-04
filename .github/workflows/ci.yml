@@ -26,22 +26,10 @@ jobs:
     - run: |
         gcc --version
         ldd --version
-    - run: |
-        platforms=("c" "js" "wasm" "wasi" "wasm-gc")
-        args=()
-        for v in "${platforms[@]}"
-        do
-          if [[ "${{ matrix.platform }}" != "$v" ]]; then
-            args+=("-Pteavm.tests.${v}=false")
-          fi
-        done
-        args+=("-Pteavm.localNodeJS=true")
-        args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
-        echo "${args[@]}"
-        ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
     - uses: addnab/docker-run-action@v3
       with:
         image: ghcr.io/catthehacker/ubuntu:act-24.04
+        shell: bash
         options: -v ${{ github.workspace }}:/teavm -w /teavm
         run: |
             sudo apt update
@@ -59,6 +47,19 @@ jobs:
             args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
             echo "${args[@]}"
             ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
+    - run: |
+        platforms=("c" "js" "wasm" "wasi" "wasm-gc")
+        args=()
+        for v in "${platforms[@]}"
+        do
+          if [[ "${{ matrix.platform }}" != "$v" ]]; then
+            args+=("-Pteavm.tests.${v}=false")
+          fi
+        done
+        args+=("-Pteavm.localNodeJS=true")
+        args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
+        echo "${args[@]}"
+        ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
     #- uses: actions/upload-artifact@v4
     #  if: failure()
     #  with:
