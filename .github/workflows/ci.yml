@@ -45,7 +45,7 @@ jobs:
         options: -v ${{ github.workspace }}:/teavm -w /teavm
         run: |
             sudo apt update
-            sudo apt install git gcc ldd openjdk-21-jdk -y
+            sudo apt install git gcc openjdk-21-jdk -y
             
             platforms=("c" "js" "wasm" "wasi" "wasm-gc")
             args=()
