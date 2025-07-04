@@ -38,7 +38,7 @@ jobs:
         args+=("-Pteavm.localNodeJS=true")
         args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
         echo "${args[@]}"
-        ./gradlew "${args[@]}" --stacktrace test --tests "org.teavm.classlib.java.io.FileTest"
+        ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
     #- uses: actions/upload-artifact@v4
     #  if: failure()
     #  with:
