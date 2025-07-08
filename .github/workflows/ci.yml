@@ -49,7 +49,7 @@ jobs:
             args+=("-Pteavm.localNodeJS=true")
             args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
             echo "${args[@]}"
-            ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
+            sudo ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
     - run: |
         platforms=("c" "js" "wasm" "wasi" "wasm-gc")
         args=()
