@@ -32,6 +32,9 @@ jobs:
         shell: bash
         options: -v ${{ github.workspace }}:/teavm -w /teavm
         run: |
+            gcc --version
+            ldd --version
+
             sudo apt update
             sudo apt install git gcc openjdk-21-jdk -y
             
