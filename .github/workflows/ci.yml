@@ -46,7 +46,7 @@ jobs:
                 args+=("-Pteavm.tests.${v}=false")
               fi
             done
-            args+=("-Pteavm.localNodeJS=true")
+            # args+=("-Pteavm.localNodeJS=true")
             args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
             echo "${args[@]}"
             sudo ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
@@ -59,7 +59,7 @@ jobs:
             args+=("-Pteavm.tests.${v}=false")
           fi
         done
-        args+=("-Pteavm.localNodeJS=true")
+        # args+=("-Pteavm.localNodeJS=true")
         args+=("-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m")
         echo "${args[@]}"
         ./gradlew "${args[@]}" --stacktrace :tests:test --tests "org.teavm.classlib.java.io.FileTest"
