@@ -143,13 +143,12 @@ public class TeaVMTestRunner extends Runner implements Filterable {
         if (suiteDescription == null) {
             suiteDescription = Description.createSuiteDescription(testClass);
 
-            Function<TestPlatform, Description> getPlatformDescriptions = (platform) -> {
-                return platformDescriptions.computeIfAbsent(platform, __ -> {
-                    var desc = Description.createTestDescription(testClass, platform.shortName());
-                    suiteDescription.addChild(desc);
-                    return desc;
-                });
-            };
+            Function<TestPlatform, Description> getPlatformDescriptions = (platform) ->
+                    platformDescriptions.computeIfAbsent(platform, __ -> {
+                        var desc = Description.createTestDescription(testClass, platform.shortName());
+                        suiteDescription.addChild(desc);
+                        return desc;
+                    });
 
             for (Method child : getFilteredChildren()) {
                 var platformSuiteDesc = getPlatformDescriptions.apply(TestPlatform.JVM);
@@ -1100,7 +1099,8 @@ public class TeaVMTestRunner extends Runner implements Filterable {
         private final TeaVMTestConfiguration<?> configuration;
         private final Method method;
 
-        private static TestRunDescriptor of(TestPlatform platform, TeaVMTestConfiguration<?> configuration, Method method) {
+        private static TestRunDescriptor of(TestPlatform platform, TeaVMTestConfiguration<?> configuration,
+                Method method) {
             return new TestRunDescriptor(platform, configuration, method);
         }
 
