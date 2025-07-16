@@ -143,7 +143,7 @@ public class TeaVMTestRunner extends Runner implements Filterable {
         if (suiteDescription == null) {
             suiteDescription = Description.createSuiteDescription(testClass);
 
-            Function<TestPlatform, Description> getPlatformDescriptions = (platform) ->
+            Function<TestPlatform, Description> getPlatformDescriptions = platform ->
                     platformDescriptions.computeIfAbsent(platform, __ -> {
                         var desc = Description.createTestDescription(testClass, platform.shortName());
                         suiteDescription.addChild(desc);
